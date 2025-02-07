@@ -1,0 +1,8 @@
+---
+source: src/simulation.rs
+expression: "to_game_of_life_output(&ctx.grid, 4)"
+---
+░░░░
+░██░
+░██░
+░░░░

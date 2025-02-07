@@ -1,0 +1,51 @@
+---
+source: src/model/mod.rs
+expression: "&model"
+---
+Model(
+  nodes: {
+    NodeId(0): Node("Dead"),
+    NodeId(1): Node("Alive"),
+  },
+  edges: [
+    Edge(
+      id: EdgeId(0),
+      name: "Underpopulation",
+      from_node: NodeId(1),
+      to_node: NodeId(0),
+      conditions: [
+        Condition(
+          left: PopulationCount(NodeId(1)),
+          operand: Less,
+          right: Absolute(2),
+        ),
+      ],
+    ),
+    Edge(
+      id: EdgeId(1),
+      name: "Overpopulation",
+      from_node: NodeId(1),
+      to_node: NodeId(0),
+      conditions: [
+        Condition(
+          left: PopulationCount(NodeId(1)),
+          operand: Greater,
+          right: Absolute(3),
+        ),
+      ],
+    ),
+    Edge(
+      id: EdgeId(2),
+      name: "Reproduction",
+      from_node: NodeId(0),
+      to_node: NodeId(1),
+      conditions: [
+        Condition(
+          left: PopulationCount(NodeId(1)),
+          operand: Equal,
+          right: Absolute(3),
+        ),
+      ],
+    ),
+  ],
+)

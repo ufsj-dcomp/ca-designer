@@ -1,0 +1,15 @@
+[package]
+name = "libca"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.95"
+rayon = "1.10.0"
+ron = "0.8.1"
+rand = { version = "0.9.0", features = ["nightly"] }
+serde = { version = "1.0.217", features = ["derive"] }
+
+[dev-dependencies]
+insta = { version = "1.42.1", features = ["ron"] }
+rstest = { version = "0.24.0", default-features = false }
