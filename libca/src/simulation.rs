@@ -79,4 +79,18 @@ mod tests {
 
         insta::assert_snapshot!("vertical", to_game_of_life_output(&ctx.grid));
     }
+
+    #[test]
+    fn gol_glider_should_move_and_cycle() {
+        let model = game_of_life_rules();
+        let grid = game_of_life_grid(include_str!("../fixtures/gol/glider.txt"));
+
+        let mut ctx = SimulationContext::new(model, grid);
+
+        for _ in 0..32 {
+            ctx.step();
+        }
+
+        insta::assert_snapshot!(to_game_of_life_output(&ctx.grid));
+    }
 }
