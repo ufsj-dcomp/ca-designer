@@ -37,6 +37,8 @@ mod tests {
 
     #[test]
     fn model_serialization() {
-        insta::assert_ron_snapshot!(&game_of_life_rules());
+        insta::with_settings!({sort_maps =>true}, {
+            insta::assert_ron_snapshot!(&game_of_life_rules());
+        });
     }
 }

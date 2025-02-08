@@ -63,8 +63,19 @@ impl Grid {
         std::mem::swap(&mut self.cells, &mut self.next_cells);
     }
 
+    #[inline]
     pub fn n_cells(&self) -> usize {
         self.n_cells
+    }
+
+    #[inline]
+    pub fn n_rows(&self) -> usize {
+        self.n_cells.div_ceil(self.neighbor_ctx.cells_per_row)
+    }
+
+    #[inline]
+    pub fn cells_per_row(&self) -> usize {
+        self.neighbor_ctx.cells_per_row
     }
 }
 

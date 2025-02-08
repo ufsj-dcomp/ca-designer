@@ -11,5 +11,5 @@ rand = { version = "0.9.0", features = ["nightly"] }
 serde = { version = "1.0.217", features = ["derive"] }
 
 [dev-dependencies]
-insta = { version = "1.42.1", features = ["ron"] }
+insta = { version = "1.42.1", features = ["ron", "redactions"] }
 rstest = { version = "0.24.0", default-features = false }

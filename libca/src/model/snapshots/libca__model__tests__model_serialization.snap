@@ -1,6 +1,6 @@
 ---
 source: src/model/mod.rs
-expression: "&model"
+expression: "&game_of_life_rules()"
 ---
 Model(
   nodes: {
