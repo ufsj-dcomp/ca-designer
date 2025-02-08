@@ -22,7 +22,7 @@ impl NeighboringContext {
                 todo!("Evaluate edge cases"),
             ]),
             NeighboringStrategy::SquareAndCorners => {
-                let col = dbg!(dbg!(index).rem(self.cells_per_row));
+                let col = index.rem(self.cells_per_row);
                 let allow_left_side = col > 0;
                 let allow_right_side = col < self.cells_per_row - 1;
 
