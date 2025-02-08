@@ -1,3 +1,5 @@
+use std::ops::Rem;
+
 use crate::model::NodeId;
 
 const MAX_NEIGHBORS_PER_CELL: usize = 8;
@@ -11,22 +13,39 @@ pub struct NeighboringContext {
 impl NeighboringContext {
     fn get_neighbors(&self, index: usize) -> IndexIter {
         match self.strategy {
+            #[allow(unreachable_code)]
             NeighboringStrategy::Square => IndexIter::new(&[
                 index.checked_sub(1),
                 index.checked_add(1),
                 index.checked_sub(self.cells_per_row),
                 index.checked_add(self.cells_per_row),
+                todo!("Evaluate edge cases"),
             ]),
-            NeighboringStrategy::SquareAndCorners => IndexIter::new(&[
-                index.checked_sub(1),
-                index.checked_add(1),
-                index.checked_sub(self.cells_per_row),
-                index.checked_sub(self.cells_per_row - 1),
-                index.checked_sub(self.cells_per_row + 1),
-                index.checked_add(self.cells_per_row),
-                index.checked_add(self.cells_per_row - 1),
-                index.checked_add(self.cells_per_row + 1),
-            ]),
+            NeighboringStrategy::SquareAndCorners => {
+                let col = dbg!(dbg!(index).rem(self.cells_per_row));
+                let allow_left_side = col > 0;
+                let allow_right_side = col < self.cells_per_row - 1;
+
+                IndexIter::new(&[
+                    allow_left_side.then(|| index.checked_sub(1)).flatten(),
+                    allow_right_side.then(|| index.checked_add(1)).flatten(),
+                    index.checked_sub(self.cells_per_row),
+                    allow_right_side
+                        .then(|| index.checked_sub(self.cells_per_row - 1))
+                        .flatten(),
+                    allow_left_side
+                        .then(|| index.checked_sub(self.cells_per_row + 1))
+                        .flatten(),
+                    index.checked_add(self.cells_per_row),
+                    allow_left_side
+                        .then(|| index.checked_add(self.cells_per_row - 1))
+                        .flatten(),
+                    allow_right_side
+                        .then(|| index.checked_add(self.cells_per_row + 1))
+                        .flatten(),
+                ])
+            }
+            #[allow(unreachable_code)]
             NeighboringStrategy::Hexagon => IndexIter::new(&[
                 index.checked_sub(1),
                 index.checked_add(1),
@@ -34,6 +53,7 @@ impl NeighboringContext {
                 index.checked_sub(self.cells_per_row - 1),
                 index.checked_add(self.cells_per_row),
                 index.checked_add(self.cells_per_row - 1),
+                todo!("Evaluate edge cases"),
             ]),
         }
     }
@@ -95,28 +115,44 @@ impl IterNeighbors for Vec<NodeId> {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use crate::grid::test_utils::game_of_life_grid;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
 
-//     #[rstest]
-//     #[case(
-//         NeighboringStrategy::SquareAndCorners,
-//         "
-//             ░░░░
-//             ░██░
-//             ░██░
-//             ░░░░
-//         ",
-//         5,
-//         [0, 1, 2, 4, 6, 7, 8, 9]
-//     )]
-//     fn iter_neighbors_returns_expected_results(
-//         #[case] strategy: NeighboringStrategy,
-//         #[case] states: &'static str,
-//         #[case] idx: usize,
-//         #[case] expected: [usize],
-//     ) {
-//         let grid = game_of_life_grid(states);
-//     }
-// }
+    #[rstest]
+    #[case(
+        NeighboringContext{
+            cells_per_row: 4,
+            strategy: NeighboringStrategy::SquareAndCorners,
+        },
+        5,
+        &[0, 1, 2, 4, 6, 8, 9, 10]
+    )]
+    #[case(
+        NeighboringContext{
+            cells_per_row: 3,
+            strategy: NeighboringStrategy::SquareAndCorners,
+        },
+        6,
+        &[3, 4, 7, 9, 10]
+    )]
+    #[case(
+        NeighboringContext{
+            cells_per_row: 3,
+            strategy: NeighboringStrategy::SquareAndCorners,
+        },
+        8,
+        &[4, 5, 7, 10, 11]
+    )]
+    fn iter_neighbors_returns_expected_results(
+        #[case] neighbor_ctx: NeighboringContext,
+        #[case] idx: usize,
+        #[case] expected_indexes: &[usize],
+    ) {
+        let mut actual_indexes: Vec<_> = neighbor_ctx.get_neighbors(idx).collect();
+        actual_indexes.sort();
+
+        assert_eq!(actual_indexes, expected_indexes);
+    }
+}

@@ -57,4 +57,26 @@ mod tests {
 
         insta::assert_snapshot!(to_game_of_life_output(&ctx.grid, 4));
     }
+
+    #[test]
+    fn gol_blinker_should_oscillate() {
+        let model = game_of_life_rules();
+        let grid = game_of_life_grid(
+            "
+            ░░░
+            ░█░
+            ░█░
+            ░█░
+            ░░░
+        ",
+        );
+
+        let mut ctx = SimulationContext::new(model, grid);
+        ctx.step();
+
+        insta::assert_snapshot!("horizontal", to_game_of_life_output(&ctx.grid, 3));
+        ctx.step();
+
+        insta::assert_snapshot!("vertical", to_game_of_life_output(&ctx.grid, 3));
+    }
 }
