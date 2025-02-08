@@ -27,12 +27,12 @@ pub fn grid_from_repr(repr: &'static str, map: impl Fn(char) -> NodeId) -> Grid 
     grid
 }
 
-pub fn grid_to_repr<F>(grid: &Grid, n_rows: usize, map: F) -> String
+pub fn grid_to_repr<F>(grid: &Grid, map: F) -> String
 where
     F: FnMut(NodeId) -> char + Clone + Copy,
 {
     grid.cells
-        .chunks(n_rows)
+        .chunks(grid.cells_per_row())
         .map(|chunk| String::from_iter(chunk.iter().copied().map(map)))
         .collect::<Vec<_>>()
         .join("\n")
@@ -51,8 +51,8 @@ pub fn game_of_life_grid(repr: &'static str) -> Grid {
     })
 }
 
-pub fn to_game_of_life_output(grid: &Grid, n_rows: usize) -> String {
-    grid_to_repr(grid, n_rows, |state| match state {
+pub fn to_game_of_life_output(grid: &Grid) -> String {
+    grid_to_repr(grid, |state| match state {
         NodeId(0) => '░',
         NodeId(1) => '█',
         _ => panic!("Invalid state NodeId({})", state.0),

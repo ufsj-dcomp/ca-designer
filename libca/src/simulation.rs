@@ -55,7 +55,7 @@ mod tests {
         let mut ctx = SimulationContext::new(model, grid);
         ctx.step();
 
-        insta::assert_snapshot!(to_game_of_life_output(&ctx.grid, 4));
+        insta::assert_snapshot!(to_game_of_life_output(&ctx.grid));
     }
 
     #[test]
@@ -74,9 +74,9 @@ mod tests {
         let mut ctx = SimulationContext::new(model, grid);
         ctx.step();
 
-        insta::assert_snapshot!("horizontal", to_game_of_life_output(&ctx.grid, 3));
+        insta::assert_snapshot!("horizontal", to_game_of_life_output(&ctx.grid));
         ctx.step();
 
-        insta::assert_snapshot!("vertical", to_game_of_life_output(&ctx.grid, 3));
+        insta::assert_snapshot!("vertical", to_game_of_life_output(&ctx.grid));
     }
 }
