@@ -19,3 +19,9 @@ impl NodeId {
 
 #[derive(Serialize, Deserialize)]
 pub struct Node(pub(crate) String);
+
+impl Node {
+    pub fn name(&self) -> &str {
+        &self.0
+    }
+}

@@ -1,0 +1,8 @@
+[workspace]
+resolver = "2"
+members = [ "ca-tui","libca"]
+
+[workspace.dependencies]
+libca.path = "./libca"
+anyhow = "1.0.95"
+strum = { version = "0.26.3", features = ["derive"] }

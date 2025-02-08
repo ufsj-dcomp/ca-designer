@@ -35,14 +35,11 @@ impl SimulationContext {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        grid::test_utils::{game_of_life_grid, to_game_of_life_output},
-        model::test_utils::game_of_life_rules,
-    };
+    use crate::grid::test_utils::{game_of_life_grid, to_game_of_life_output};
 
     #[test]
     fn gol_block_should_remain() {
-        let model = game_of_life_rules();
+        let model = Model::game_of_life();
         let grid = game_of_life_grid(
             "
             ░░░░
@@ -60,7 +57,7 @@ mod tests {
 
     #[test]
     fn gol_blinker_should_oscillate() {
-        let model = game_of_life_rules();
+        let model = Model::game_of_life();
         let grid = game_of_life_grid(
             "
             ░░░
@@ -82,7 +79,7 @@ mod tests {
 
     #[test]
     fn gol_glider_should_move_and_cycle() {
-        let model = game_of_life_rules();
+        let model = Model::game_of_life();
         let grid = game_of_life_grid(include_str!("../fixtures/gol/glider.txt"));
 
         let mut ctx = SimulationContext::new(model, grid);

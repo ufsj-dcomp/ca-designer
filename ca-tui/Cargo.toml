@@ -1,0 +1,11 @@
+[package]
+name = "ca-tui"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow.workspace = true
+strum.workspace = true
+crossterm = { version = "0.28.1", default-features = false, features = ["events"] }
+libca.workspace = true
+ratatui = "0.29.0"
