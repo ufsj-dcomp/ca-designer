@@ -2,7 +2,9 @@
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+#[derive(
+    Serialize, Deserialize, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default,
+)]
 pub struct NodeId(pub(crate) usize);
 
 impl NodeId {
@@ -21,6 +23,10 @@ impl NodeId {
 pub struct Node(pub(crate) String);
 
 impl Node {
+    pub fn new(name: String) -> Self {
+        Self(name)
+    }
+
     pub fn name(&self) -> &str {
         &self.0
     }

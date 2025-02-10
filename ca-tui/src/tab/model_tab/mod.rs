@@ -1,5 +1,8 @@
+mod add_node;
+
+use add_node::AddNodeModal;
 use crossterm::event::KeyCode;
-use libca::Operand;
+use libca::{NodeId, Operand};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Style, Stylize},
@@ -9,11 +12,23 @@ use ratatui::{
 };
 use strum::IntoStaticStr;
 
+use crate::widgets::{Navbar, StatefulModal};
+
+const MAIN_AREA_AND_NAVBAR_CONSTRAINTS: [Constraint; 2] =
+    [Constraint::Min(0), Constraint::Length(1)];
+
+pub enum ModalMessage {
+    AddNode(libca::Node),
+    AddEdge(libca::Edge),
+    Close,
+}
+
 pub struct ModelTab {
     curr_panel: Panel,
     curr_node_row: usize,
     curr_edge_row: usize,
     curr_condition_row: usize,
+    add_modal: Option<Box<dyn StatefulModal<Message = ModalMessage>>>,
 }
 
 impl ModelTab {
@@ -23,10 +38,27 @@ impl ModelTab {
             curr_node_row: 0,
             curr_edge_row: 0,
             curr_condition_row: 0,
+            add_modal: None,
         }
     }
 
-    pub fn handle_key_press(&mut self, key_code: KeyCode, model: &libca::Model) {
+    pub fn is_modal_open(&self) -> bool {
+        self.add_modal.is_some()
+    }
+
+    pub fn current_node<'m>(&self, model: &'m libca::Model) -> Option<&'m NodeId> {
+        model
+            .nodes()
+            .nth(self.curr_node_row)
+            .map(|(node_id, _)| node_id)
+    }
+
+    pub fn current_edge<'m>(&self, model: &'m libca::Model) -> Option<&'m libca::Edge> {
+        self.current_node(model)
+            .and_then(|node_id| model.edges_from_node(node_id).nth(self.curr_edge_row))
+    }
+
+    pub fn handle_key_press(&mut self, key_code: KeyCode, model: &mut libca::Model) {
         let (row, upper_bound, dependencies): (&mut _, _, &mut [_]) = match self.curr_panel {
             Panel::Nodes => (
                 &mut self.curr_node_row,
@@ -46,6 +78,20 @@ impl ModelTab {
         };
 
         match key_code {
+            KeyCode::Esc if self.add_modal.is_some() => self.add_modal = None,
+            key if let Some(add_modal) = &mut self.add_modal => {
+                if let Some(message) = add_modal.key_press(key) {
+                    match message {
+                        ModalMessage::AddNode(node) => model.add_node(node),
+                        ModalMessage::AddEdge(edge) => {
+                            model.add_edge(edge);
+                        }
+                        ModalMessage::Close => self.add_modal = None,
+                    };
+
+                    self.add_modal = None;
+                }
+            }
             KeyCode::Right => self.curr_panel.cycle_right(),
             KeyCode::Left => self.curr_panel.cycle_left(),
             KeyCode::Up => {
@@ -56,6 +102,20 @@ impl ModelTab {
                 *row = row.checked_add(1).unwrap_or_default().min(upper_bound - 1);
                 dependencies.iter_mut().for_each(|dep| **dep = 0);
             }
+            KeyCode::Char('a') => self.add_modal = Some(self.curr_panel.add_modal(model)),
+            KeyCode::Char('D') => match self.curr_panel {
+                Panel::Nodes => {
+                    if let Some(node_id) = self.current_node(model) {
+                        model.delete_node(*node_id);
+                        let current_node_count = model.nodes().len();
+                        if self.curr_node_row >= current_node_count {
+                            self.curr_node_row = current_node_count - 1;
+                        }
+                    }
+                }
+                Panel::Edges => todo!(),
+                Panel::Conditions => todo!(),
+            },
             _ => {}
         };
     }
@@ -72,31 +132,45 @@ impl ModelTab {
 
         let [node_area, edge_area, condition_area] =
             Layout::horizontal(horizontal_layout).areas(area);
+
         self.draw_nodes(model, node_area, ctx);
         self.draw_edges(model, edge_area, ctx);
         self.draw_conditions(model, condition_area, ctx);
+
+        if let Some(add_modal) = &self.add_modal {
+            add_modal.draw(ctx);
+        }
     }
 
     fn draw_nodes(&self, model: &libca::Model, area: Rect, ctx: &mut Frame) {
         let block = Panel::Nodes.block(&self.curr_panel);
         let content_area = block.inner(area);
 
+        let [main_area, navbar_area] =
+            Layout::vertical(MAIN_AREA_AND_NAVBAR_CONSTRAINTS).areas(content_area);
         let layout = Layout::vertical(model.nodes().map(|_| Constraint::Length(3)));
 
         ctx.render_widget(block, area);
         model
             .nodes()
             .map(|(_, node)| NodeWrapper(node))
-            .zip(layout.split(content_area).iter())
+            .zip(layout.split(main_area).iter())
             .enumerate()
             .for_each(|(idx, (node, area))| node.draw(idx == self.curr_node_row, *area, ctx));
+
+        if self.curr_panel == Panel::Nodes {
+            Self::draw_navbar(navbar_area, ctx);
+        }
     }
 
     fn draw_edges(&self, model: &libca::Model, area: Rect, ctx: &mut Frame) {
         let block = Panel::Edges.block(&self.curr_panel);
         let content_area = block.inner(area);
 
-        let Some((current_node_id, _)) = model.nodes().nth(self.curr_node_row) else {
+        let [main_area, navbar_area] =
+            Layout::vertical(MAIN_AREA_AND_NAVBAR_CONSTRAINTS).areas(content_area);
+
+        let Some(current_node_id) = self.current_node(model) else {
             return;
         };
 
@@ -111,11 +185,15 @@ impl ModelTab {
         model
             .edges_from_node(current_node_id)
             .map(EdgeWrapper)
-            .zip(layout.split(content_area).iter())
+            .zip(layout.split(main_area).iter())
             .enumerate()
             .for_each(|(idx, (edge, area))| {
                 edge.draw(idx == self.curr_edge_row, model, *area, ctx)
             });
+
+        if self.curr_panel == Panel::Edges {
+            Self::draw_navbar(navbar_area, ctx);
+        }
     }
 
     fn draw_conditions(&self, model: &libca::Model, area: Rect, ctx: &mut Frame) {
@@ -124,11 +202,10 @@ impl ModelTab {
 
         ctx.render_widget(block, area);
 
-        let Some((node_id, _)) = model.nodes().nth(self.curr_node_row) else {
-            return;
-        };
+        let [main_area, navbar_area] =
+            Layout::vertical(MAIN_AREA_AND_NAVBAR_CONSTRAINTS).areas(content_area);
 
-        let Some(edge) = model.edges_from_node(node_id).nth(self.curr_edge_row) else {
+        let Some(edge) = self.current_edge(model) else {
             return;
         };
 
@@ -136,11 +213,22 @@ impl ModelTab {
         edge.conditions()
             .iter()
             .map(ConditionWrapper)
-            .zip(layout.split(content_area).iter())
+            .zip(layout.split(main_area).iter())
             .enumerate()
             .for_each(|(idx, (condition, area))| {
                 condition.draw(idx, self.curr_condition_row, model, *area, ctx)
             });
+
+        if self.curr_panel == Panel::Conditions {
+            Self::draw_navbar(navbar_area, ctx);
+        }
+    }
+
+    fn draw_navbar(area: Rect, ctx: &mut Frame) {
+        const KEYS: &[(&str, &str)] =
+            &[(" a ", " Add "), (" D ", " Remove "), (" ↑↓ ", " Select ")];
+
+        Navbar::draw(KEYS, area, ctx);
     }
 }
 
@@ -159,9 +247,9 @@ impl Panel {
     fn block(&self, curr_panel: &Self) -> Block {
         let style = Style::new();
         let style = if self == curr_panel {
-            style.blue()
-        } else {
             style.white()
+        } else {
+            style.dark_gray()
         };
 
         let title: &'static str = self.into();
@@ -182,6 +270,14 @@ impl Panel {
             Panel::Edges => Panel::Nodes,
             Panel::Conditions => Panel::Edges,
         };
+    }
+
+    fn add_modal(&self, model: &libca::Model) -> Box<dyn StatefulModal<Message = ModalMessage>> {
+        match self {
+            Panel::Nodes => Box::new(AddNodeModal::new()),
+            Panel::Edges => todo!(),
+            Panel::Conditions => todo!(),
+        }
     }
 }
 
@@ -238,12 +334,18 @@ impl ConditionWrapper<'_> {
     fn draw(
         &self,
         idx: usize,
-        _selected_idx: usize,
+        selected_idx: usize,
         model: &libca::Model,
         area: Rect,
         ctx: &mut Frame,
     ) {
         let prefix = if idx == 0 { "When" } else { "And" };
+
+        let style = if idx == selected_idx {
+            Style::new().blue()
+        } else {
+            Style::new().white()
+        };
 
         use libca::Value::*;
         let op = self.0.operand;
@@ -268,6 +370,7 @@ impl ConditionWrapper<'_> {
             }
         };
 
+        let text = Text::raw(text).style(style);
         ctx.render_widget(text, area);
     }
 }

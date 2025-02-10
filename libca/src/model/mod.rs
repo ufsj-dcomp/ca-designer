@@ -1,8 +1,9 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use edge::EdgeId;
 pub use edge::{Condition, Edge, Operand, Value};
 pub use node::Node;
+use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 
 pub use node::NodeId;
@@ -14,7 +15,7 @@ mod node;
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct Model {
-    pub(crate) nodes: HashMap<NodeId, Node>,
+    pub(crate) nodes: BTreeMap<NodeId, Node>,
     pub(crate) edges: Vec<Edge>,
 }
 
@@ -49,6 +50,69 @@ impl Model {
         self.edges
             .iter()
             .filter(move |edge| &edge.from_node == from_node_id)
+    }
+
+    pub fn add_node(&mut self, node: Node) {
+        let next_node_id = self
+            .nodes
+            .last_key_value()
+            .map(|(node_id, _)| node_id.as_index() + 1)
+            .unwrap_or_default();
+
+        let node_id = NodeId(next_node_id);
+        self.nodes.insert(node_id, node);
+    }
+
+    pub fn add_edge(&mut self, mut edge: Edge) -> &EdgeId {
+        let next_edge_id = self
+            .edges
+            .iter()
+            .map(|edge| edge.id.0)
+            .max()
+            .map(|id| id + 1)
+            .unwrap_or_default();
+
+        let insert_at_idx = self.edges.len();
+
+        edge.id = EdgeId(next_edge_id);
+        self.edges.push(edge);
+
+        &self.edges[insert_at_idx].id
+    }
+
+    pub fn delete_node(&mut self, node_id: NodeId) {
+        let Some(_) = self.nodes.remove(&node_id) else {
+            return;
+        };
+
+        self.edges
+            .retain(|edge| edge.from_node != node_id && edge.to_node != node_id);
+
+        let Some((highest_node_id, _)) = self.nodes.last_key_value() else {
+            return;
+        };
+
+        let highest_node_id = *highest_node_id;
+
+        if highest_node_id < node_id {
+            return;
+        }
+
+        // Minimize NodeId's by getting the highest node and assigning it
+        // the removed node's ID
+        self.edges.par_iter_mut().for_each(|edge| {
+            if edge.from_node == highest_node_id {
+                edge.from_node = node_id;
+            }
+
+            if edge.to_node == highest_node_id {
+                edge.to_node = node_id;
+            }
+        });
+
+        if let Some(highest_node) = self.nodes.remove(&highest_node_id) {
+            self.nodes.insert(node_id, highest_node);
+        }
     }
 }
 

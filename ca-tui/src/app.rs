@@ -38,9 +38,22 @@ impl App {
 
     pub fn handle_key_press(&mut self, key_ev: KeyEvent) -> bool {
         match key_ev.code {
-            KeyCode::Esc => return true,
+            key_code @ KeyCode::Esc => {
+                return match self.current_tab {
+                    Tab::Model => {
+                        if self.model_tab.is_modal_open() {
+                            self.model_tab.handle_key_press(key_code, &mut self.model);
+                            false
+                        } else {
+                            true
+                        }
+                    }
+                    Tab::Graph => true,
+                    Tab::Simulation => true,
+                }
+            }
             key_code => match self.current_tab {
-                Tab::Model => self.model_tab.handle_key_press(key_code, &self.model),
+                Tab::Model => self.model_tab.handle_key_press(key_code, &mut self.model),
                 Tab::Graph => todo!(),
                 Tab::Simulation => todo!(),
             },

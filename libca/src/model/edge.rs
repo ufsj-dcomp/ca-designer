@@ -20,6 +20,26 @@ pub struct Edge {
 }
 
 impl Edge {
+    pub fn new(name: String, from_node: NodeId, to_node: NodeId) -> Self {
+        Self {
+            id: EdgeId(0), // Will be changed by the Model
+            name,
+            from_node,
+            to_node,
+            conditions: Vec::new(),
+        }
+    }
+
+    pub fn add_condition(&mut self, cond: Condition) {
+        self.conditions.push(cond);
+    }
+
+    pub fn remove_condition(&mut self, idx: usize) {
+        if idx <= self.conditions.len() {
+            self.conditions.swap_remove(idx);
+        }
+    }
+
     pub fn transition(&self, node_id: NodeId, neighbors: &StateMap) -> Option<NodeId> {
         (self.from_node == node_id
             && self
