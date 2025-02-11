@@ -14,6 +14,8 @@ use strum::IntoStaticStr;
 
 use crate::widgets::{Navbar, StatefulModal};
 
+use super::Tab;
+
 const MAIN_AREA_AND_NAVBAR_CONSTRAINTS: [Constraint; 2] =
     [Constraint::Min(0), Constraint::Length(1)];
 
@@ -31,34 +33,12 @@ pub struct ModelTab {
     add_modal: Option<Box<dyn StatefulModal<Message = ModalMessage>>>,
 }
 
-impl ModelTab {
-    pub fn new() -> Self {
-        Self {
-            curr_panel: Panel::Nodes,
-            curr_node_row: 0,
-            curr_edge_row: 0,
-            curr_condition_row: 0,
-            add_modal: None,
-        }
-    }
-
-    pub fn is_modal_open(&self) -> bool {
+impl Tab for ModelTab {
+    fn is_modal_open(&self) -> bool {
         self.add_modal.is_some()
     }
 
-    pub fn current_node<'m>(&self, model: &'m libca::Model) -> Option<&'m NodeId> {
-        model
-            .nodes()
-            .nth(self.curr_node_row)
-            .map(|(node_id, _)| node_id)
-    }
-
-    pub fn current_edge<'m>(&self, model: &'m libca::Model) -> Option<&'m libca::Edge> {
-        self.current_node(model)
-            .and_then(|node_id| model.edges_from_node(node_id).nth(self.curr_edge_row))
-    }
-
-    pub fn handle_key_press(&mut self, key_code: KeyCode, model: &mut libca::Model) {
+    fn handle_key_press(&mut self, key_code: KeyCode, model: &mut libca::Model) {
         let (row, upper_bound, dependencies): (&mut _, _, &mut [_]) = match self.curr_panel {
             Panel::Nodes => (
                 &mut self.curr_node_row,
@@ -120,7 +100,7 @@ impl ModelTab {
         };
     }
 
-    pub fn draw(&self, model: &libca::Model, area: Rect, ctx: &mut Frame) {
+    fn draw(&mut self, model: &libca::Model, area: Rect, ctx: &mut Frame) {
         let mut horizontal_layout = [
             Constraint::Fill(2),
             Constraint::Fill(2),
@@ -140,6 +120,30 @@ impl ModelTab {
         if let Some(add_modal) = &self.add_modal {
             add_modal.draw(ctx);
         }
+    }
+}
+
+impl ModelTab {
+    pub fn new() -> Self {
+        Self {
+            curr_panel: Panel::Nodes,
+            curr_node_row: 0,
+            curr_edge_row: 0,
+            curr_condition_row: 0,
+            add_modal: None,
+        }
+    }
+
+    pub fn current_node<'m>(&self, model: &'m libca::Model) -> Option<&'m NodeId> {
+        model
+            .nodes()
+            .nth(self.curr_node_row)
+            .map(|(node_id, _)| node_id)
+    }
+
+    pub fn current_edge<'m>(&self, model: &'m libca::Model) -> Option<&'m libca::Edge> {
+        self.current_node(model)
+            .and_then(|node_id| model.edges_from_node(node_id).nth(self.curr_edge_row))
     }
 
     fn draw_nodes(&self, model: &libca::Model, area: Rect, ctx: &mut Frame) {

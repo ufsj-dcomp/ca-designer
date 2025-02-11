@@ -1,46 +1,43 @@
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
-    style::{Style, Styled, Stylize},
-    symbols,
+    style::{Style, Stylize},
     text::{Line, Span},
-    widgets::{Tabs, Widget},
     Frame,
 };
 use strum::{VariantArray, VariantNames};
 
-use crate::{tab::ModelTab, widgets::Navbar};
+use crate::{
+    tab::{GraphvizTab, ModelTab, Tab},
+    widgets::Navbar,
+};
 
 pub struct App {
     model: libca::Model,
-    model_tab: ModelTab,
-    current_tab: Tab,
+    tab: Box<dyn Tab>,
+    current_tab: TabType,
 }
 
 impl App {
     pub fn new() -> Self {
         Self {
             model: libca::Model::game_of_life(),
-            model_tab: ModelTab::new(),
-            current_tab: Tab::Model,
+            tab: Box::new(ModelTab::new()),
+            current_tab: TabType::Model,
         }
     }
 
-    pub fn draw(&self, ctx: &mut Frame) {
+    pub fn draw(&mut self, ctx: &mut Frame) {
         const VERTICAL_CONSTRAINTS: [Constraint; 3] = [
             Constraint::Length(1),
-            Constraint::Min(0),
+            Constraint::Fill(1),
             Constraint::Length(1),
         ];
 
         let [header_area, main_area, navbar_area] =
             Layout::vertical(VERTICAL_CONSTRAINTS).areas(ctx.area());
 
-        match self.current_tab {
-            Tab::Model => self.model_tab.draw(&self.model, main_area, ctx),
-            Tab::Graph => todo!(),
-            Tab::Simulation => todo!(),
-        }
+        self.tab.draw(&self.model, main_area, ctx);
 
         self.draw_header(header_area, ctx);
         Self::draw_navbar(navbar_area, ctx);
@@ -50,22 +47,30 @@ impl App {
         match key_ev.code {
             key_code @ KeyCode::Esc => {
                 return match self.current_tab {
-                    Tab::Model => {
-                        if self.model_tab.is_modal_open() {
-                            self.model_tab.handle_key_press(key_code, &mut self.model);
+                    TabType::Model => {
+                        if self.tab.is_modal_open() {
+                            self.tab.handle_key_press(key_code, &mut self.model);
                             false
                         } else {
                             true
                         }
                     }
-                    Tab::Graph => true,
-                    Tab::Simulation => true,
+                    TabType::Graph => true,
+                    TabType::Simulation => true,
                 }
             }
+            KeyCode::Tab => {
+                self.current_tab = self.current_tab.next();
+                self.tab = match self.current_tab {
+                    TabType::Model => Box::new(ModelTab::new()),
+                    TabType::Graph => Box::new(GraphvizTab::new(&self.model).unwrap()),
+                    TabType::Simulation => todo!(),
+                };
+            }
             key_code => match self.current_tab {
-                Tab::Model => self.model_tab.handle_key_press(key_code, &mut self.model),
-                Tab::Graph => todo!(),
-                Tab::Simulation => todo!(),
+                TabType::Model => self.tab.handle_key_press(key_code, &mut self.model),
+                TabType::Graph => todo!(),
+                TabType::Simulation => todo!(),
             },
         };
 
@@ -73,8 +78,8 @@ impl App {
     }
 
     fn draw_header(&self, area: Rect, ctx: &mut Frame) {
-        const NAMES: &'static [&str] = <Tab as VariantNames>::VARIANTS;
-        const TABS: &'static [Tab] = <Tab as VariantArray>::VARIANTS;
+        const NAMES: &[&str] = <TabType as VariantNames>::VARIANTS;
+        const TABS: &[TabType] = <TabType as VariantArray>::VARIANTS;
 
         const HORIZONTAL_CONSTRAINTS: [Constraint; 2] = [Constraint::Fill(1); 2];
         let [title_area, tabs_area] = Layout::horizontal(HORIZONTAL_CONSTRAINTS).areas(area);
@@ -101,6 +106,7 @@ impl App {
 
     fn draw_navbar(area: Rect, ctx: &mut Frame) {
         const KEYS: &[(&str, &str)] = &[
+            (" Tab ", " Next Tab "),
             (" ← ", " Prev. Pane "),
             (" → ", " Next Pane "),
             (" Esc ", " Quit "),
@@ -112,8 +118,18 @@ impl App {
 
 #[repr(usize)]
 #[derive(VariantNames, VariantArray, Clone, Copy, PartialEq, Eq)]
-enum Tab {
+enum TabType {
     Model,
     Graph,
     Simulation,
+}
+
+impl TabType {
+    fn next(self) -> TabType {
+        match self {
+            TabType::Model => TabType::Graph,
+            TabType::Graph => TabType::Model,
+            TabType::Simulation => todo!(),
+        }
+    }
 }
