@@ -1,3 +1,4 @@
+#![feature(iter_intersperse)]
 #![feature(if_let_guard)]
 
 mod app;

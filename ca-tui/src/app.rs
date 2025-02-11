@@ -1,9 +1,13 @@
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
+    style::{Style, Styled, Stylize},
+    symbols,
+    text::{Line, Span},
+    widgets::{Tabs, Widget},
     Frame,
 };
-use strum::VariantNames;
+use strum::{VariantArray, VariantNames};
 
 use crate::{tab::ModelTab, widgets::Navbar};
 
@@ -23,9 +27,14 @@ impl App {
     }
 
     pub fn draw(&self, ctx: &mut Frame) {
-        const VERTICAL_CONSTRAINTS: [Constraint; 2] = [Constraint::Min(0), Constraint::Length(1)];
+        const VERTICAL_CONSTRAINTS: [Constraint; 3] = [
+            Constraint::Length(1),
+            Constraint::Min(0),
+            Constraint::Length(1),
+        ];
 
-        let [main_area, navbar_area] = Layout::vertical(VERTICAL_CONSTRAINTS).areas(ctx.area());
+        let [header_area, main_area, navbar_area] =
+            Layout::vertical(VERTICAL_CONSTRAINTS).areas(ctx.area());
 
         match self.current_tab {
             Tab::Model => self.model_tab.draw(&self.model, main_area, ctx),
@@ -33,6 +42,7 @@ impl App {
             Tab::Simulation => todo!(),
         }
 
+        self.draw_header(header_area, ctx);
         Self::draw_navbar(navbar_area, ctx);
     }
 
@@ -62,6 +72,33 @@ impl App {
         false
     }
 
+    fn draw_header(&self, area: Rect, ctx: &mut Frame) {
+        const NAMES: &'static [&str] = <Tab as VariantNames>::VARIANTS;
+        const TABS: &'static [Tab] = <Tab as VariantArray>::VARIANTS;
+
+        const HORIZONTAL_CONSTRAINTS: [Constraint; 2] = [Constraint::Fill(1); 2];
+        let [title_area, tabs_area] = Layout::horizontal(HORIZONTAL_CONSTRAINTS).areas(area);
+
+        ctx.render_widget("CA TUI".bold(), title_area);
+
+        let tabs: Line = TABS
+            .iter()
+            .zip(NAMES)
+            .map(|(tab, name)| {
+                let mut span = Span::raw(*name);
+                if *tab == self.current_tab {
+                    span = span.style(Style::new().yellow());
+                }
+
+                span
+            })
+            .intersperse(Span::raw(" • "))
+            .collect::<Line>()
+            .right_aligned();
+
+        ctx.render_widget(tabs, tabs_area);
+    }
+
     fn draw_navbar(area: Rect, ctx: &mut Frame) {
         const KEYS: &[(&str, &str)] = &[
             (" ← ", " Prev. Pane "),
@@ -74,7 +111,7 @@ impl App {
 }
 
 #[repr(usize)]
-#[derive(VariantNames, Clone, Copy)]
+#[derive(VariantNames, VariantArray, Clone, Copy, PartialEq, Eq)]
 enum Tab {
     Model,
     Graph,
