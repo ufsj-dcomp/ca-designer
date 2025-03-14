@@ -1,32 +1,23 @@
-use rayon::iter::IntoParallelRefIterator;
-
-use crate::{grid::Grid, model::Model, state_map::StateMap};
+use crate::{grid::Grid, model::Model, state_map::StatePool};
 
 pub struct SimulationContext {
     model: Model,
     grid: Grid,
-    state_pool: Vec<StateMap>,
+    state_pool: StatePool,
 }
 
 impl SimulationContext {
     pub fn new(model: Model, grid: Grid) -> Self {
-        let n_cells = grid.n_cells();
-        let mut state_pool = Vec::with_capacity(n_cells);
-
-        for _ in 0..state_pool.capacity() {
-            state_pool.push(StateMap::new());
-        }
-
         Self {
+            state_pool: StatePool::new(&grid),
             model,
             grid,
-            state_pool,
         }
     }
 
     pub fn step(&mut self) {
         self.grid
-            .map_cells(self.state_pool.par_iter(), |curr_state, state_map| {
+            .map_cells(&self.state_pool, |curr_state, state_map| {
                 self.model.next_state(curr_state, state_map)
             });
     }

@@ -9,7 +9,10 @@ use rayon::iter::{
     IndexedParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
 };
 
-use crate::{model::NodeId, state_map::StateMap};
+use crate::{
+    model::NodeId,
+    state_map::{StateMap, StatePool},
+};
 
 #[derive(Debug)]
 pub struct Grid {
@@ -44,17 +47,16 @@ impl Grid {
         Ok(())
     }
 
-    pub fn map_cells<'is, IS, F>(&mut self, state_maps: IS, f: F)
+    pub fn map_cells<'s, F>(&mut self, state_pool: &'s StatePool, f: F)
     where
-        IS: IndexedParallelIterator<Item = &'is StateMap>,
-        F: Fn(NodeId, &'is StateMap) -> NodeId + Send + Sync,
+        F: Fn(NodeId, &'s StateMap) -> NodeId + Send + Sync,
     {
         self.cells
             .par_iter()
             .enumerate()
             .zip(self.next_cells.par_iter_mut())
-            .zip(state_maps)
-            .for_each(|(((idx, cell), next_cell), state_map)| {
+            .for_each(|((idx, cell), next_cell)| {
+                let state_map = state_pool.get(idx);
                 let neighbors = self.cells.iter_neighbors(idx, self.neighbor_ctx);
                 state_map.count_states(neighbors);
                 *next_cell = f(*cell, state_map);

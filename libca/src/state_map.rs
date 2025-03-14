@@ -1,7 +1,27 @@
-use crate::model::NodeId;
+use crate::{grid::Grid, model::NodeId};
 use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 
 const DEFAULT_NUMBER_OF_DIFFERENT_STATES_EXPECTED: usize = 64;
+
+pub struct StatePool(Vec<StateMap>);
+
+impl StatePool {
+    pub fn new(grid: &Grid) -> Self {
+        let n_cells = grid.n_cells();
+        let mut state_pool = Vec::with_capacity(n_cells);
+
+        for _ in 0..state_pool.capacity() {
+            state_pool.push(StateMap::new());
+        }
+
+        Self(state_pool)
+    }
+
+    pub fn get(&self, idx: usize) -> &StateMap {
+        let idx = idx % self.0.len();
+        &self.0[idx]
+    }
+}
 
 #[derive(Debug)]
 pub struct StateMap {
