@@ -1,4 +1,4 @@
-use rayon::iter::IntoParallelRefMutIterator;
+use rayon::iter::IntoParallelRefIterator;
 
 use crate::{grid::Grid, model::Model, state_map::StateMap};
 
@@ -26,7 +26,7 @@ impl SimulationContext {
 
     pub fn step(&mut self) {
         self.grid
-            .map_cells(self.state_pool.par_iter_mut(), |curr_state, state_map| {
+            .map_cells(self.state_pool.par_iter(), |curr_state, state_map| {
                 self.model.next_state(curr_state, state_map)
             });
     }

@@ -1,4 +1,5 @@
 #![feature(iter_collect_into)]
+#![feature(vec_into_raw_parts)]
 
 pub mod grid;
 pub mod model;

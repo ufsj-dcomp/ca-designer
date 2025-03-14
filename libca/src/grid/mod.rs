@@ -46,7 +46,7 @@ impl Grid {
 
     pub fn map_cells<'is, IS, F>(&mut self, state_maps: IS, f: F)
     where
-        IS: IndexedParallelIterator<Item = &'is mut StateMap>,
+        IS: IndexedParallelIterator<Item = &'is StateMap>,
         F: Fn(NodeId, &'is StateMap) -> NodeId + Send + Sync,
     {
         self.cells
