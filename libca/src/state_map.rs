@@ -1,4 +1,4 @@
-use crate::{grid::Grid, model::NodeId};
+use crate::{model::NodeId, AVAILABLE_PARALLELISM};
 use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 
 const DEFAULT_NUMBER_OF_DIFFERENT_STATES_EXPECTED: usize = 64;
@@ -6,9 +6,8 @@ const DEFAULT_NUMBER_OF_DIFFERENT_STATES_EXPECTED: usize = 64;
 pub struct StatePool(Vec<StateMap>);
 
 impl StatePool {
-    pub fn new(grid: &Grid) -> Self {
-        let n_cells = grid.n_cells();
-        let mut state_pool = Vec::with_capacity(n_cells);
+    pub fn new() -> Self {
+        let mut state_pool = Vec::with_capacity(*AVAILABLE_PARALLELISM);
 
         for _ in 0..state_pool.capacity() {
             state_pool.push(StateMap::new());
@@ -20,6 +19,12 @@ impl StatePool {
     pub fn get(&self, idx: usize) -> &StateMap {
         let idx = idx % self.0.len();
         &self.0[idx]
+    }
+}
+
+impl Default for StatePool {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -69,7 +74,7 @@ impl StateMap {
         //    from a `Vec::into_raw_parts` call
         // 2. `state` is less than `self.len`
         //  - This is the assertion above
-        unsafe { *self.ptr.add(state.as_index()) }
+        unsafe { *self.ptr.add(idx) }
     }
 
     pub const fn default_size() -> usize {

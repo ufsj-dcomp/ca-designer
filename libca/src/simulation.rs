@@ -9,7 +9,7 @@ pub struct SimulationContext {
 impl SimulationContext {
     pub fn new(model: Model, grid: Grid) -> Self {
         Self {
-            state_pool: StatePool::new(&grid),
+            state_pool: StatePool::new(),
             model,
             grid,
         }

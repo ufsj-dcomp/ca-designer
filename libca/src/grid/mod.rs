@@ -12,6 +12,7 @@ use rayon::iter::{
 use crate::{
     model::NodeId,
     state_map::{StateMap, StatePool},
+    AVAILABLE_PARALLELISM,
 };
 
 #[derive(Debug)]
@@ -51,15 +52,23 @@ impl Grid {
     where
         F: Fn(NodeId, &'s StateMap) -> NodeId + Send + Sync,
     {
+        let chunk_size = *AVAILABLE_PARALLELISM;
         self.cells
-            .par_iter()
+            .chunks(chunk_size)
+            .zip(self.next_cells.chunks_mut(chunk_size))
             .enumerate()
-            .zip(self.next_cells.par_iter_mut())
-            .for_each(|((idx, cell), next_cell)| {
-                let state_map = state_pool.get(idx);
-                let neighbors = self.cells.iter_neighbors(idx, self.neighbor_ctx);
-                state_map.count_states(neighbors);
-                *next_cell = f(*cell, state_map);
+            .for_each(|(outer_idx, (cells, next_cells))| {
+                cells
+                    .par_iter()
+                    .enumerate()
+                    .zip(next_cells.par_iter_mut())
+                    .for_each(|((inner_idx, cell), next_cell)| {
+                        let idx = outer_idx * chunk_size + inner_idx;
+                        let state_map = state_pool.get(idx);
+                        let neighbors = self.cells.iter_neighbors(idx, self.neighbor_ctx);
+                        state_map.count_states(neighbors);
+                        *next_cell = f(*cell, state_map);
+                    });
             });
 
         std::mem::swap(&mut self.cells, &mut self.next_cells);
