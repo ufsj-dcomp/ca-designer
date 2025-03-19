@@ -2,10 +2,10 @@ mod add_node;
 
 use add_node::AddNodeModal;
 use crossterm::event::KeyCode;
-use libca::{NodeId, Operand};
+use libca::{simulation::SimulationContext, NodeId, Operand};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
-    style::{Style, Stylize},
+    style::{Color, Style, Stylize},
     text::{Line, Text},
     widgets::{Block, Borders},
     Frame,
@@ -100,7 +100,15 @@ impl Tab for ModelTab {
         };
     }
 
-    fn draw(&mut self, model: &libca::Model, area: Rect, ctx: &mut Frame) {
+    fn draw(
+        &self,
+        simulation_ctx: &SimulationContext,
+        colors: &[Color],
+        area: Rect,
+        ctx: &mut Frame,
+    ) {
+        let model = &simulation_ctx.model;
+
         let mut horizontal_layout = [
             Constraint::Fill(2),
             Constraint::Fill(2),

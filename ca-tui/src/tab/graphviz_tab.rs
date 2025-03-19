@@ -1,17 +1,18 @@
 use std::{fs::File, path::Path, process::Command};
 
 use image::ImageReader;
-use libca::{Edge, Node};
-use ratatui::{layout::Rect, Frame};
+use libca::{simulation::SimulationContext, Edge, Node};
+use ratatui::{layout::Rect, style::Color, Frame};
 use ratatui_image::{picker::Picker, protocol::StatefulProtocol, StatefulImage};
 
 use super::Tab;
 
-pub struct GraphvizTab {
-    image: StatefulProtocol,
-}
+static mut IMAGE: Option<StatefulProtocol> = None;
+
+pub struct GraphvizTab;
 
 impl GraphvizTab {
+    #[allow(static_mut_refs)] // We're not storing the reference
     pub fn new(model: &libca::Model) -> anyhow::Result<Self> {
         const DOT: &str = "/tmp/test.dot";
         const PNG: &str = "/tmp/test.png";
@@ -25,13 +26,28 @@ impl GraphvizTab {
         let picker = Picker::from_query_stdio()?;
         let image = picker.new_resize_protocol(img);
 
-        Ok(Self { image })
+        // # Safety
+        // This static is private and only used within this module
+        unsafe {
+            IMAGE.replace(image);
+        }
+
+        Ok(Self)
     }
 }
 
 impl Tab for GraphvizTab {
-    fn draw(&mut self, _model: &libca::Model, area: Rect, ctx: &mut Frame) {
-        ctx.render_stateful_widget(StatefulImage::default(), area, &mut self.image);
+    #[allow(static_mut_refs)] // We're not storing the reference
+    fn draw(
+        &self,
+        _simulation_ctx: &SimulationContext,
+        _colors: &[Color],
+        area: Rect,
+        ctx: &mut Frame,
+    ) {
+        if let Some(img) = unsafe { IMAGE.as_mut() } {
+            ctx.render_stateful_widget(StatefulImage::default(), area, img);
+        }
     }
 }
 

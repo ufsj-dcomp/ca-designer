@@ -1,80 +1,92 @@
+use std::sync::Arc;
+
 use crossterm::event::{KeyCode, KeyEvent};
+use libca::simulation::SimulationContext;
 use ratatui::{
     layout::{Constraint, Layout, Rect},
-    style::{Style, Stylize},
+    style::{Color, Style, Stylize},
     text::{Line, Span},
-    Frame,
+    DefaultTerminal, Frame,
 };
 use strum::{VariantArray, VariantNames};
+use tokio::sync::Mutex;
 
 use crate::{
-    tab::{GraphvizTab, ModelTab, Tab},
+    tab::{GraphvizTab, ModelTab, SimulationTab, Tab},
     widgets::Navbar,
 };
 
 pub struct App {
-    model: libca::Model,
+    simulation_ctx: Arc<Mutex<SimulationContext>>,
+    node_colors: Vec<Color>,
     tab: Box<dyn Tab>,
     current_tab: TabType,
 }
 
 impl App {
-    pub fn new() -> Self {
+    pub fn new(simulation_ctx: Arc<Mutex<SimulationContext>>) -> Self {
         Self {
-            model: libca::Model::game_of_life(),
+            simulation_ctx,
+            node_colors: [Color::Black, Color::White].to_vec(),
             tab: Box::new(ModelTab::new()),
             current_tab: TabType::Model,
         }
     }
 
-    pub fn draw(&mut self, ctx: &mut Frame) {
+    pub async fn draw_to(&mut self, terminal: &mut DefaultTerminal) -> anyhow::Result<()> {
         const VERTICAL_CONSTRAINTS: [Constraint; 3] = [
             Constraint::Length(1),
             Constraint::Fill(1),
             Constraint::Length(1),
         ];
 
-        let [header_area, main_area, navbar_area] =
-            Layout::vertical(VERTICAL_CONSTRAINTS).areas(ctx.area());
+        let sim = self.simulation_ctx.lock().await;
+        terminal.draw(|ctx| {
+            let [header_area, main_area, navbar_area] =
+                Layout::vertical(VERTICAL_CONSTRAINTS).areas(ctx.area());
 
-        self.tab.draw(&self.model, main_area, ctx);
+            self.tab.draw(&sim, &self.node_colors, main_area, ctx);
+            self.draw_header(header_area, ctx);
+            Self::draw_navbar(navbar_area, ctx);
+        })?;
 
-        self.draw_header(header_area, ctx);
-        Self::draw_navbar(navbar_area, ctx);
+        Ok(())
     }
 
-    pub fn handle_key_press(&mut self, key_ev: KeyEvent) -> bool {
+    pub async fn handle_key_press(&mut self, key_ev: KeyEvent) -> Message {
+        let mut sim = self.simulation_ctx.lock().await;
+        let model = &mut sim.model;
+
         match key_ev.code {
             key_code @ KeyCode::Esc => {
                 return match self.current_tab {
                     TabType::Model => {
                         if self.tab.is_modal_open() {
-                            self.tab.handle_key_press(key_code, &mut self.model);
-                            false
+                            self.tab.handle_key_press(key_code, model);
+                            Message::None
                         } else {
-                            true
+                            Message::CloseApplication
                         }
                     }
-                    TabType::Graph => true,
-                    TabType::Simulation => true,
+                    TabType::Graph | TabType::Simulation => Message::CloseApplication,
                 }
             }
             KeyCode::Tab => {
                 self.current_tab = self.current_tab.next();
                 self.tab = match self.current_tab {
                     TabType::Model => Box::new(ModelTab::new()),
-                    TabType::Graph => Box::new(GraphvizTab::new(&self.model).unwrap()),
-                    TabType::Simulation => todo!(),
+                    TabType::Graph => Box::new(GraphvizTab::new(model).unwrap()),
+                    TabType::Simulation => Box::new(SimulationTab::new(&sim.grid).unwrap()),
                 };
             }
             key_code => match self.current_tab {
-                TabType::Model => self.tab.handle_key_press(key_code, &mut self.model),
+                TabType::Model => self.tab.handle_key_press(key_code, model),
                 TabType::Graph => todo!(),
                 TabType::Simulation => todo!(),
             },
         };
 
-        false
+        Message::None
     }
 
     fn draw_header(&self, area: Rect, ctx: &mut Frame) {
@@ -116,6 +128,15 @@ impl App {
     }
 }
 
+pub enum Message {
+    ResumeSimulation,
+    PauseSimulation,
+    StepSimulation,
+    UpdateModel(libca::Model),
+    CloseApplication,
+    None,
+}
+
 #[repr(usize)]
 #[derive(VariantNames, VariantArray, Clone, Copy, PartialEq, Eq)]
 enum TabType {
@@ -128,8 +149,8 @@ impl TabType {
     fn next(self) -> TabType {
         match self {
             TabType::Model => TabType::Graph,
-            TabType::Graph => TabType::Model,
-            TabType::Simulation => todo!(),
+            TabType::Graph => TabType::Simulation,
+            TabType::Simulation => TabType::Model,
         }
     }
 }
