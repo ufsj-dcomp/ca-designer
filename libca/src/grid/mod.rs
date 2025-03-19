@@ -90,9 +90,14 @@ impl Grid {
     pub fn cells_per_row(&self) -> usize {
         self.neighbor_ctx.cells_per_row
     }
+
+    #[inline]
+    pub fn cells(&self) -> &[NodeId] {
+        &self.cells
+    }
 }
 
 pub struct StateProbabilty {
-    state: NodeId,
-    weight: f32,
+    pub state: NodeId,
+    pub weight: f32,
 }
