@@ -1,8 +1,8 @@
 use crate::{grid::Grid, model::Model, state_map::StatePool};
 
 pub struct SimulationContext {
-    model: Model,
-    grid: Grid,
+    pub model: Model,
+    pub grid: Grid,
     state_pool: StatePool,
 }
 
