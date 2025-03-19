@@ -40,8 +40,10 @@ impl Grid {
         self.cells.clear();
         let mut rng = rand::rng();
 
-        state_probabilities
-            .choose_multiple_weighted(&mut rng, self.n_cells, |sp| sp.weight)?
+        (0..self.cells.capacity())
+            .map(|_| state_probabilities.choose_weighted(&mut rng, |sp| sp.weight))
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
             .map(|sp| sp.state)
             .collect_into(&mut self.cells);
 
